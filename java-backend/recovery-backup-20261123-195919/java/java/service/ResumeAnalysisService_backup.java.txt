@@ -1,0 +1,444 @@
+
+package resume_analyzer.service;
+
+import org.springframework.stereotype.Service;
+import java.util.*;
+import java.util.regex.Pattern;
+
+@Service
+public class ResumeAnalysisService {
+
+    private static final Map<String, List<String>> SKILL_ALIASES =
+            new LinkedHashMap<>();
+
+    private static final List<String> SECTIONS = Arrays.asList(
+            "education", "experience", "work experience",
+            "skills", "technical skills", "projects",
+            "certifications", "achievements", "summary", "objective"
+    );
+
+    private static final List<String> ACTION_VERBS = Arrays.asList(
+            "developed", "created", "designed", "implemented",
+            "managed", "built", "optimized", "improved",
+            "analyzed", "led", "delivered", "engineered",
+            "automated", "configured", "maintained", "deployed",
+            "tested", "coordinated", "achieved", "increased",
+            "reduced", "streamlined", "integrated", "launched",
+            "executed"
+    );
+
+    static {
+        addSkill("python", "python", "py");
+        addSkill("java", "java");
+        addSkill("javascript", "javascript", "js");
+        addSkill("typescript", "typescript", "ts");
+        addSkill("c++", "c++", "cpp");
+        addSkill("c#", "c#", "c sharp");
+        addSkill("sql", "sql");
+        addSkill("html", "html");
+        addSkill("css", "css");
+        addSkill("react", "react", "reactjs", "react.js");
+        addSkill("angular", "angular");
+        addSkill("vue", "vue", "vuejs", "vue.js");
+        addSkill("node.js", "node.js", "nodejs", "node js");
+        addSkill("fastapi", "fastapi");
+        addSkill("django", "django");
+        addSkill("flask", "flask");
+        addSkill("machine learning", "machine learning", "ml");
+        addSkill("deep learning", "deep learning");
+        addSkill("artificial intelligence", "artificial intelligence", "ai");
+        addSkill("data analysis", "data analysis");
+        addSkill("data science", "data science");
+        addSkill("pandas", "pandas");
+        addSkill("numpy", "numpy");
+        addSkill("scikit-learn", "scikit-learn", "sklearn");
+        addSkill("tensorflow", "tensorflow");
+        addSkill("pytorch", "pytorch");
+        addSkill("nlp", "nlp", "natural language processing");
+        addSkill("power bi", "power bi", "powerbi");
+        addSkill("tableau", "tableau");
+        addSkill("excel", "excel", "microsoft excel");
+        addSkill("statistics", "statistics", "statistical analysis");
+        addSkill("aws", "aws", "amazon web services");
+        addSkill("azure", "azure", "microsoft azure");
+        addSkill("docker", "docker");
+        addSkill("kubernetes", "kubernetes", "k8s");
+        addSkill("git", "git");
+        addSkill("linux", "linux");
+        addSkill("rest api", "rest api", "restful api", "rest apis");
+        addSkill("mongodb", "mongodb", "mongo db");
+        addSkill("postgresql", "postgresql", "postgres");
+        addSkill("mysql", "mysql");
+        addSkill("communication", "communication", "communication skills");
+        addSkill("leadership", "leadership");
+        addSkill("problem solving", "problem solving", "problem-solving");
+        addSkill("project management", "project management");
+        addSkill("agile", "agile");
+        addSkill("testing", "testing", "software testing");
+        addSkill("cybersecurity", "cybersecurity", "cyber security");
+    }
+
+    private static void addSkill(String skill, String... aliases) {
+        SKILL_ALIASES.put(skill, Arrays.asList(aliases));
+    }
+
+    private String clean(String text) {
+        if (text == null) return "";
+        return text.toLowerCase()
+                .replace("\n", " ")
+                .replace("\t", " ")
+                .replaceAll("\\s+", " ")
+                .trim();
+    }
+
+    private boolean containsTerm(String text, String term) {
+        String cleanedText = clean(text);
+        String cleanedTerm = clean(term);
+
+        if (cleanedText.isEmpty() || cleanedTerm.isEmpty()) {
+            return false;
+        }
+
+        String pattern = "(?<![a-z0-9])"
+                + Pattern.quote(cleanedTerm)
+                + "(?![a-z0-9])";
+
+        return Pattern.compile(pattern).matcher(cleanedText).find();
+    }
+
+    private List<String> findSkills(String text) {
+        List<String> found = new ArrayList<>();
+
+        for (Map.Entry<String, List<String>> entry : SKILL_ALIASES.entrySet()) {
+            for (String alias : entry.getValue()) {
+                if (containsTerm(text, alias)) {
+                    found.add(entry.getKey());
+                    break;
+                }
+            }
+        }
+
+        Collections.sort(found);
+        return found;
+    }
+
+    private List<String> findSections(String text) {
+        List<String> found = new ArrayList<>();
+
+        for (String section : SECTIONS) {
+            if (containsTerm(text, section)) {
+                found.add(section);
+            }
+        }
+
+        return found;
+    }
+
+    private List<String> findActionVerbs(String text) {
+        List<String> found = new ArrayList<>();
+
+        for (String verb : ACTION_VERBS) {
+            if (containsTerm(text, verb)) {
+                found.add(verb);
+            }
+        }
+
+        return found;
+    }
+
+    private boolean hasAchievements(String text) {
+        boolean hasNumbers =
+                Pattern.compile("\\b\\d+(\\.\\d+)?%?\\b").matcher(text).find();
+
+        List<String> words = Arrays.asList(
+                "increased", "decreased", "reduced", "improved",
+                "saved", "generated", "achieved", "growth",
+                "performance", "efficiency"
+        );
+
+        boolean hasWords = words.stream()
+                .anyMatch(word -> containsTerm(text, word));
+
+        return hasNumbers && hasWords;
+    }
+
+    private boolean hasEmail(String text) {
+        return Pattern.compile(
+                "\\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}\\b"
+        ).matcher(text).find();
+    }
+
+    private boolean hasPhone(String text) {
+        return Pattern.compile(
+                "\\+?\\d[\\d\\s().-]{7,}\\d"
+        ).matcher(text).find();
+    }
+
+    private double calculateSimilarity(String resume, String job) {
+        // Basic token-based cosine similarity.
+        // This is a temporary implementation, not an exact
+        // replacement for scikit-learn TF-IDF.
+        Map<String, Integer> resumeWords = wordFrequency(resume);
+        Map<String, Integer> jobWords = wordFrequency(job);
+
+        Set<String> allWords = new HashSet<>(resumeWords.keySet());
+        allWords.addAll(jobWords.keySet());
+
+        double dot = 0;
+        double resumeMagnitude = 0;
+        double jobMagnitude = 0;
+
+        for (String word : allWords) {
+            int a = resumeWords.getOrDefault(word, 0);
+            int b = jobWords.getOrDefault(word, 0);
+
+            dot += (double) a * b;
+            resumeMagnitude += (double) a * a;
+            jobMagnitude += (double) b * b;
+        }
+
+        if (resumeMagnitude == 0 || jobMagnitude == 0) return 0.0;
+
+        return Math.round(
+                dot / (Math.sqrt(resumeMagnitude) *
+                        Math.sqrt(jobMagnitude)) * 1000.0
+        ) / 10.0;
+    }
+
+    private Map<String, Integer> wordFrequency(String text) {
+        Map<String, Integer> frequencies = new HashMap<>();
+
+        String stopWords =
+                "the and for with you your our are is was were will can must " +
+                "should have has had this that from into about who what when " +
+                "where need needed looking seeking candidate ability work working";
+
+        Set<String> stop = new HashSet<>(
+                Arrays.asList(stopWords.split(" "))
+        );
+
+        for (String word : clean(text).split("[^a-z0-9+#.]+")) {
+            if (word.length() > 2 && !stop.contains(word)) {
+                frequencies.put(word,
+                        frequencies.getOrDefault(word, 0) + 1);
+            }
+        }
+
+        return frequencies;
+    }
+
+    private double round(double value) {
+        return Math.round(value * 10.0) / 10.0;
+    }
+
+    public Map<String, Object> analyzeResume(
+            String resumeText,
+            String jobDescription
+    ) {
+        if (resumeText == null || resumeText.trim().isEmpty()) {
+            throw new IllegalArgumentException("Resume text is empty.");
+        }
+
+        if (jobDescription == null || jobDescription.trim().isEmpty()) {
+            throw new IllegalArgumentException("Job description is empty.");
+        }
+
+        String resume = clean(resumeText);
+        String job = clean(jobDescription);
+
+        List<String> resumeSkills = findSkills(resume);
+        List<String> jobSkills = findSkills(job);
+
+        List<String> matched = new ArrayList<>(jobSkills);
+        matched.retainAll(resumeSkills);
+
+        List<String> missing = new ArrayList<>(jobSkills);
+        missing.removeAll(resumeSkills);
+
+        double skillCoverage = jobSkills.isEmpty()
+                ? 0
+                : round((double) matched.size() / jobSkills.size() * 100);
+
+        double textSimilarity = calculateSimilarity(resume, job);
+
+        List<String> sections = findSections(resume);
+        List<String> actionVerbs = findActionVerbs(resume);
+
+        boolean achievements = hasAchievements(resume);
+        boolean email = hasEmail(resumeText);
+        boolean phone = hasPhone(resumeText);
+
+        int experienceEvidence = 0;
+
+        if (sections.contains("experience")
+                || sections.contains("work experience")
+                || sections.contains("projects")) {
+            experienceEvidence += 50;
+        }
+
+        if (!actionVerbs.isEmpty()) experienceEvidence += 25;
+        if (achievements) experienceEvidence += 25;
+
+        double resumeStructure =
+                Math.min(sections.size() / 4.0 * 100, 100);
+
+        double keywordMatch = textSimilarity;
+
+        double score;
+
+        if (!jobSkills.isEmpty()) {
+            score = skillCoverage * 0.40
+                    + textSimilarity * 0.25
+                    + keywordMatch * 0.20
+                    + experienceEvidence * 0.10
+                    + resumeStructure * 0.05;
+        } else {
+            score = textSimilarity * 0.60
+                    + keywordMatch * 0.30
+                    + resumeStructure * 0.10;
+        }
+
+        score = round(Math.max(0, Math.min(score, 100)));
+
+        String readiness;
+
+        if (score >= 85) readiness = "Excellent";
+        else if (score >= 70) readiness = "Good";
+        else if (score >= 50) readiness = "Average";
+        else readiness = "Needs Improvement";
+
+        List<String> suggestions = new ArrayList<>();
+
+        if (!missing.isEmpty()) {
+            suggestions.add(
+                    "Consider adding relevant missing skills if you have those skills."
+            );
+        }
+
+        if (!achievements) {
+            suggestions.add(
+                    "Add measurable achievements to demonstrate your impact."
+            );
+        }
+
+        if (!sections.contains("skills")
+                && !sections.contains("technical skills")) {
+            suggestions.add("Add a clearly labelled Skills section.");
+        }
+
+        if (actionVerbs.isEmpty()) {
+            suggestions.add(
+                    "Use strong action verbs to describe your work and projects."
+            );
+        }
+
+        if (!email || !phone) {
+            suggestions.add(
+                    "Make sure your contact information is clearly visible."
+            );
+        }
+
+        if (suggestions.isEmpty()) {
+            suggestions.add(
+                    "Continue tailoring your resume to the specific job description."
+            );
+        }
+
+        List<String> strengths = new ArrayList<>();
+        List<String> weaknesses = new ArrayList<>();
+
+        if (!matched.isEmpty()) {
+            strengths.add("Your resume matches "
+                    + matched.size() + " job-related skills.");
+        }
+
+        if (!sections.isEmpty()) {
+            strengths.add("Your resume contains recognizable sections.");
+        }
+
+        if (!actionVerbs.isEmpty()) {
+            strengths.add("Your resume uses "
+                    + actionVerbs.size() + " recognized action verbs.");
+        }
+
+        if (achievements) {
+            strengths.add(
+                    "Your resume contains measurable achievement evidence."
+            );
+        }
+
+        if (email && phone) {
+            strengths.add(
+                    "Your resume contains email and phone contact information."
+            );
+        }
+
+        if (!missing.isEmpty()) {
+            weaknesses.add(
+                    "Your resume is missing some skills required by the job description."
+            );
+        }
+
+        if (!sections.contains("skills")
+                && !sections.contains("technical skills")) {
+            weaknesses.add(
+                    "Your resume does not clearly include a Skills section."
+            );
+        }
+
+        if (!achievements) {
+            weaknesses.add(
+                    "Measurable achievements were not clearly detected."
+            );
+        }
+
+        if (!email || !phone) {
+            weaknesses.add(
+                    "Your resume may be missing contact information."
+            );
+        }
+
+        if (actionVerbs.isEmpty()) {
+            weaknesses.add(
+                    "Your resume could use stronger action verbs."
+            );
+        }
+
+        Map<String, Object> quality = new LinkedHashMap<>();
+        quality.put("score", 0.0);
+
+        Map<String, Object> strengthWeakness = new LinkedHashMap<>();
+        strengthWeakness.put("strengths", strengths);
+        strengthWeakness.put("weaknesses", weaknesses);
+        strengthWeakness.put("priority_improvements", new ArrayList<>());
+
+        Map<String, Object> breakdown = new LinkedHashMap<>();
+        breakdown.put("skill_match", skillCoverage);
+        breakdown.put("text_similarity", textSimilarity);
+        breakdown.put("keyword_match", keywordMatch);
+        breakdown.put("experience_evidence", experienceEvidence);
+        breakdown.put("resume_structure", round(resumeStructure));
+
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("match_score", score);
+        result.put("text_similarity", textSimilarity);
+        result.put("skill_coverage", skillCoverage);
+        result.put("resume_skills", resumeSkills);
+        result.put("job_skills", jobSkills);
+        result.put("matched_skills", matched);
+        result.put("missing_skills", missing);
+        result.put("suggestions", suggestions);
+        result.put("job_readiness", readiness);
+        result.put("resume_sections", sections);
+        result.put("action_verbs", actionVerbs);
+        result.put("has_measurable_achievements", achievements);
+        result.put("resume_quality", quality);
+        result.put("strengths_weaknesses", strengthWeakness);
+        result.put("keyword_match", keywordMatch);
+        result.put("matched_keywords", new ArrayList<>());
+        result.put("missing_keywords", new ArrayList<>());
+        result.put("score_breakdown", breakdown);
+
+        return result;
+    }
+}
