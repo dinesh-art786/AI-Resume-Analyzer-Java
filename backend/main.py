@@ -11,22 +11,34 @@ from routes.auth_routes import router as auth_router
 from routes.resume_routes import router as resume_router
 
 
+# ==========================================
 # BACKEND DIRECTORY
+# ==========================================
+
 BASE_DIR = Path(__file__).resolve().parent
 
 
+# ==========================================
 # INITIALIZE DATABASE
+# ==========================================
+
 initialize_database()
 
 
+# ==========================================
 # CREATE FASTAPI APPLICATION
+# ==========================================
+
 app = FastAPI(
     title="AI Resume Analyzer API",
     version="1.0.0"
 )
 
 
+# ==========================================
 # CREATE UPLOADS DIRECTORY
+# ==========================================
+
 UPLOAD_DIR = BASE_DIR / "uploads"
 
 UPLOAD_DIR.mkdir(
@@ -35,7 +47,10 @@ UPLOAD_DIR.mkdir(
 )
 
 
+# ==========================================
 # SERVE UPLOADED PROFILE PICTURES
+# ==========================================
+
 app.mount(
     "/uploads",
     StaticFiles(directory=str(UPLOAD_DIR)),
@@ -43,25 +58,23 @@ app.mount(
 )
 
 
+# ==========================================
 # CONFIGURE CORS
+# ==========================================
+
 frontend_origins = [
     "http://localhost:5173",
     "http://127.0.0.1:5173",
     "http://localhost:5177",
     "http://127.0.0.1:5177",
+    "https://airesumeanaliserjava.vercel.app",
 ]
 
-# Add deployed frontend URL from environment
+# Read deployed frontend URL from Render environment variables
 vercel_url = os.getenv("FRONTEND_URL", "").strip().rstrip("/")
 
-if vercel_url:
+if vercel_url and vercel_url not in frontend_origins:
     frontend_origins.append(vercel_url)
-
-# Keep the existing deployed URL as a fallback
-if not vercel_url:
-    frontend_origins.append(
-        "https://ai-resume-analyzer-2007-p4yzjgjqk-bdineshsravya786-4602.vercel.app"
-    )
 
 app.add_middleware(
     CORSMiddleware,
@@ -72,21 +85,30 @@ app.add_middleware(
 )
 
 
+# ==========================================
 # REGISTER AUTHENTICATION ROUTER
+# ==========================================
+
 app.include_router(
     auth_router,
     prefix="/api"
 )
 
 
+# ==========================================
 # REGISTER RESUME ROUTER
+# ==========================================
+
 app.include_router(
     resume_router,
     prefix="/api"
 )
 
 
+# ==========================================
 # HOME ROUTE
+# ==========================================
+
 @app.get("/")
 def home():
     return {
@@ -94,7 +116,10 @@ def home():
     }
 
 
+# ==========================================
 # HEALTH CHECK
+# ==========================================
+
 @app.get("/health")
 def health_check():
     return {
